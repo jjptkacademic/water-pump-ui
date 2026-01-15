@@ -11,8 +11,8 @@
 // ===============================================
 // Calibration Variables - Insert measured values here
 // ===============================================
-float distance_empty = 239.0 ;  // 0.0 Distance when tank is empty (cm)
-float distance_full = 10.0;   //0.0  Distance when tank is full (cm)
+float distance_empty = 0.0 ;  // 0.0 Distance when tank is empty (cm)
+float distance_full = 0.0;   //0.0  Distance when tank is full (cm)
 // ===============================================
 
 // Function to measure distance using HC-SR04

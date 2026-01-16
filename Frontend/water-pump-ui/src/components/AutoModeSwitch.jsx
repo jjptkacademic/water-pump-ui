@@ -2,17 +2,23 @@ import { Card, CardContent, Switch, FormControlLabel, Typography } from '@mui/ma
 
 const AutoModeSwitch = ({ autoMode, onToggle }) => {
   return (
-    <Card>
+    <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" gutterBottom align="center">
           🤖 โหมดอัตโนมัติ
         </Typography>
         <FormControlLabel
+          sx={{ 
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'center'
+          }}
           control={
             <Switch
               checked={autoMode}
               onChange={(e) => onToggle(e.target.checked)}
               color="secondary"
+              size="medium"
             />
           }
           label={autoMode ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}

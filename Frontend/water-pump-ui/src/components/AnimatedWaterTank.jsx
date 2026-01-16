@@ -1,4 +1,3 @@
-import { useSpring, animated } from '@react-spring/web';
 import { Box, Typography, Chip, Alert } from '@mui/material';
 import { ArrowUpward, Circle, ArrowDownward } from '@mui/icons-material';
 import { useWaterLevel } from '../hooks/useWaterLevel';
@@ -23,7 +22,7 @@ const AnimatedWaterTank = ({
 
   return (
     <Box className="tank-container">
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h6" gutterBottom align="center" sx={{ mb: 3 }}>
         {tankName}
       </Typography>
 
@@ -44,18 +43,19 @@ const AnimatedWaterTank = ({
           </Box>
         </Box>
 
-        <animated.div
+        <Box
           className="water"
-          style={{
-            height: animatedLevel.to(h => `${h}%`),
+          sx={{
+            height: `${displayLevel}%`,
             background: getWaterGradient(displayLevel),
-            '--wave-speed': waveSpeed
+            '--wave-speed': waveSpeed,
+            transition: 'height 1.5s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <div className="wave wave1" />
           <div className="wave wave2" />
           <div className="wave wave3" />
-        </animated.div>
+        </Box>
 
         <Typography className="level-text" variant="h4">
           {displayLevel.toFixed(1)}%

@@ -28,6 +28,10 @@ const DummyDataController = ({ onDataChange }) => {
   const [pubDownSensor, setPubDownSensor] = useState(0);
 
   const [animating, setAnimating] = useState(false);
+  
+  // Timer Status
+  const [timerWorking, setTimerWorking] = useState(false);
+  const [timerDone, setTimerDone] = useState(false);
 
   const handleParkChange = (event, newValue) => {
     setParkLevel(newValue);
@@ -96,8 +100,26 @@ const DummyDataController = ({ onDataChange }) => {
         parkDown: parkDownSensor,
         pubUp: pubUpSensor,
         pubDown: pubDownSensor,
-        pumpStatus: pumpOn
+        pumpStatus: pumpOn,
+        timerWorking: timerWorking,
+        timerDoneToday: timerDone
       });
+    }
+  };
+
+  const handleTimerWorkingToggle = () => {
+    const newValue = !timerWorking;
+    setTimerWorking(newValue);
+    if (useDummyData && onDataChange) {
+      onDataChange({ timerWorking: newValue });
+    }
+  };
+
+  const handleTimerDoneToggle = () => {
+    const newValue = !timerDone;
+    setTimerDone(newValue);
+    if (useDummyData && onDataChange) {
+      onDataChange({ timerDoneToday: newValue });
     }
   };
 
@@ -303,6 +325,38 @@ const DummyDataController = ({ onDataChange }) => {
               >
                 {pumpOn ? '⚡ ON' : '⚪ OFF'}
               </Button>
+
+              <Divider />
+
+              {/* Timer Status Controls */}
+              <Typography variant="caption" sx={{ color: 'warning.main' }}>
+                ⏰ Timer Status
+              </Typography>
+
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant={timerWorking ? 'contained' : 'outlined'}
+                  color="info"
+                  size="small"
+                  onClick={handleTimerWorkingToggle}
+                  disabled={!useDummyData}
+                  fullWidth
+                >
+                  📅 Working
+                </Button>
+                <Button
+                  variant={timerDone ? 'contained' : 'outlined'}
+                  color="success"
+                  size="small"
+                  onClick={handleTimerDoneToggle}
+                  disabled={!useDummyData}
+                  fullWidth
+                >
+                  ✅ Done
+                </Button>
+              </Stack>
+
+              <Divider />
 
               <Stack direction="row" spacing={1}>
                 <Button

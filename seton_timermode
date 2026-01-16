@@ -1,0 +1,41 @@
+ สิ่งที่เพิ่ม:
+
+   1. MQTT Topics ใหม่:
+
+     // Publish
+     TIMER_MODE: 'ptk/esp8266/set-timer'     // Timer_ON / Timer_OFF
+
+     // Subscribe
+     TIMER_TODAY: 'ptk/esp8266/timer/today-working'  // Today_ON / Today_OFF
+     TIMER_DONE: 'ptk/esp8266/timer/done-today'      // Done_ON / Done_OFF
+
+   2. Components ใหม่:
+
+     - ⏰ TimerModeSwitch - เปิด/ปิดโหมดตั้งเวลา
+     - 📢 TimerStatusIndicator - แสดงสถานะ:
+       - 📅 "วันนี้มีกำหนดการ - รอถึงเวลา"
+       - ✅ "ทำงานเสร็จแล้ววันนี้ - พรุ่งนี้จะทำอีกครั้ง"
+
+   3. Layout อัพเดท:
+
+     ┌──────────┬──────────┬──────────┐
+     │ 🎛️ Pump  │ 🤖 Auto  │ ⏰ Timer │
+     │ Control  │ Mode     │ Mode     │
+     └──────────┴──────────┴──────────┘
+
+   4. สำหรับ ESP8266 ให้เพิ่ม:
+
+     // MQTTHandler.cpp - handleCallback()
+     else if (topicStr == "ptk/esp8266/set-timer") {
+         if (message == "Timer_ON") {
+             // เปิดโหมด Timer
+         } else if (message == "Timer_OFF") {
+             // ปิดโหมด Timer
+         }
+     }
+
+     // Publish สถานะ
+     client.publish("ptk/esp8266/timer/today-working", "Today_ON", true);
+     client.publish("ptk/esp8266/timer/done-today", "Done_ON", true);
+
+   Refresh แล้วทดสอบ! 🚀

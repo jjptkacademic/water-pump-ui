@@ -21,11 +21,13 @@ export const TOPICS = {
   PUMP_STATUS: 'ptk/esp8266/status',
   BUTTON_STATUS: 'ptk/esp8266/btn',
   TIMER_TODAY: 'ptk/esp8266/timer/today-working',
+  TIMER_DONE: 'ptk/esp8266/timer/done-today',
   DEBUG: 'ptk/esp8266/deug',
 
   // Publish (ส่งไป ESP8266)
   PUMP_CONTROL: 'ptk/esp8266/btn',
   AUTO_MODE: 'ptk/esp8266/set-auto',
+  TIMER_MODE: 'ptk/esp8266/set-timer',
   DEBUG_MODE: 'ptk/esp8266/set-debug',
   TIMER_START: 'ptk/esp8266/timerstart',
   TIMER_STOP: 'ptk/esp8266/timerstop',

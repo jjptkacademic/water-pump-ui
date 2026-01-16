@@ -64,6 +64,7 @@ export class MQTTService {
       TOPICS.PUMP_STATUS,
       TOPICS.BUTTON_STATUS,
       TOPICS.TIMER_TODAY,
+      TOPICS.TIMER_DONE,
       TOPICS.DEBUG
     ];
 

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Container, Grid, AppBar, Toolbar, Typography, Box } from '@mui/material';
+import { Container, Grid, AppBar, Toolbar, Typography, Box, Stack } from '@mui/material';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { darkTheme } from './theme/theme';
 
 import AnimatedWaterTank from './components/AnimatedWaterTank';
 import PumpControl from './components/PumpControl';
 import AutoModeSwitch from './components/AutoModeSwitch';
+import TimerModeSwitch from './components/TimerModeSwitch';
 import StatusIndicator from './components/StatusIndicator';
+import TimerStatusIndicator from './components/TimerStatusIndicator';
 import ConnectionStatus from './components/ConnectionStatus';
 import TimerSettings from './components/TimerSettings';
 import DaySelector from './components/DaySelector';
@@ -28,6 +30,9 @@ function App() {
 
   const [pumpStatus, setPumpStatus] = useState(false);
   const [autoMode, setAutoMode] = useState(false);
+  const [timerMode, setTimerMode] = useState(false);
+  const [timerWorking, setTimerWorking] = useState(false);
+  const [timerDoneToday, setTimerDoneToday] = useState(false);
 
   const [timerStart, setTimerStart] = useState('06:00');
   const [timerStop, setTimerStop] = useState('08:00');
@@ -64,6 +69,12 @@ function App() {
       case TOPICS.PUMP_STATUS:
         setPumpStatus(message === 'Led_ON');
         break;
+      case TOPICS.TIMER_TODAY:
+        setTimerWorking(message === 'Today_ON');
+        break;
+      case TOPICS.TIMER_DONE:
+        setTimerDoneToday(message === 'Done_ON');
+        break;
       default:
         break;
     }
@@ -79,6 +90,8 @@ function App() {
     if (data.pubUp !== undefined) setPubUp(data.pubUp);
     if (data.pubDown !== undefined) setPubDown(data.pubDown);
     if (data.pumpStatus !== undefined) setPumpStatus(data.pumpStatus);
+    if (data.timerWorking !== undefined) setTimerWorking(data.timerWorking);
+    if (data.timerDoneToday !== undefined) setTimerDoneToday(data.timerDoneToday);
   };
 
   useEffect(() => {
@@ -107,6 +120,15 @@ function App() {
     mqttService.publish(
       TOPICS.AUTO_MODE,
       enabled ? 'Auto_ON' : 'Auto_OFF',
+      true
+    );
+  };
+
+  const handleTimerModeToggle = (enabled) => {
+    setTimerMode(enabled);
+    mqttService.publish(
+      TOPICS.TIMER_MODE,
+      enabled ? 'Timer_ON' : 'Timer_OFF',
       true
     );
   };
@@ -159,12 +181,19 @@ function App() {
         
         {/* Status Bar */}
         <StatusIndicator status={pumpStatus} />
+        
+        {/* Timer Status Notice */}
+        <TimerStatusIndicator 
+          timerWorking={timerWorking} 
+          timerDoneToday={timerDoneToday} 
+        />
 
         {/* Main Layout */}
         <Box sx={{ mt: 3 }}>
           <Grid container spacing={3}>
             
-            <Grid item xs={12} lg={4}>
+            {/* Left: Tank Park */}
+            <Grid item xs={12} lg={3}>
               <AnimatedWaterTank
                 tankName="ถัง Park (ด้านบน)"
                 ultrasonicPercent={ultrasonicPark}
@@ -173,7 +202,8 @@ function App() {
               />
             </Grid>
 
-            <Grid item xs={12} lg={4}>
+            {/* Center: Tank Pub */}
+            <Grid item xs={12} lg={3}>
               <AnimatedWaterTank
                 tankName="ถัง Pub (ด้านล่าง)"
                 ultrasonicPercent={ultrasonicPub}
@@ -182,38 +212,48 @@ function App() {
               />
             </Grid>
 
-            <Grid item xs={12} lg={4}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <PumpControl 
-                  pumpStatus={pumpStatus}
-                  onToggle={handlePumpToggle}
+            {/* Right Side: Controls + Timer */}
+            <Grid item xs={12} lg={6}>
+              <Stack spacing={3}>
+                
+                {/* Controls Row - 3 Columns */}
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <PumpControl 
+                      pumpStatus={pumpStatus}
+                      onToggle={handlePumpToggle}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <AutoModeSwitch
+                      autoMode={autoMode}
+                      onToggle={handleAutoModeToggle}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TimerModeSwitch
+                      timerMode={timerMode}
+                      onToggle={handleTimerModeToggle}
+                    />
+                  </Grid>
+                </Grid>
+
+                {/* Timer Settings */}
+                <TimerSettings 
+                  startTime={timerStart}
+                  stopTime={timerStop}
+                  onTimeChange={handleTimeChange}
                 />
-                <AutoModeSwitch
-                  autoMode={autoMode}
-                  onToggle={handleAutoModeToggle}
+
+                {/* Day Selector */}
+                <DaySelector 
+                  selectedDays={selectedDays}
+                  onDayToggle={handleDayToggle}
                 />
-              </Box>
+
+              </Stack>
             </Grid>
 
-          </Grid>
-        </Box>
-
-        {/* Timer Settings */}
-        <Box sx={{ mt: 3 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TimerSettings 
-                startTime={timerStart}
-                stopTime={timerStop}
-                onTimeChange={handleTimeChange}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <DaySelector 
-                selectedDays={selectedDays}
-                onDayToggle={handleDayToggle}
-              />
-            </Grid>
           </Grid>
         </Box>
 

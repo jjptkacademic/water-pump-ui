@@ -1,10 +1,11 @@
 #include "MQTTHandler.h"
 #include "config.h"
 
-MQTTHandler::MQTTHandler(PubSubClient* mqttClient, PumpController* pump, TimeManager* timer) {
+MQTTHandler::MQTTHandler(PubSubClient* mqttClient, PumpController* pump, TimeManager* timer, WaterSensor* sensor) {
     client = mqttClient;
     pumpCtrl = pump;
     timeMgr = timer;
+    waterSensor = sensor;
     flag_set_automatic_Check = false;
 }
 
@@ -68,6 +69,20 @@ void MQTTHandler::handleCallback(char* topic, byte* payload, unsigned int length
                 client->publish("ptk/esp8266/deug", "Auto is OFF");
         }
     }
+    // Timer mode enable/disable
+    else if (topicStr == "ptk/esp8266/set-timer") {
+        if (message == "Timer_ON") {
+            timeMgr->setTimerMode(true);
+            Serial.println("Timer Mode: ON");
+            if (client->connected())
+                client->publish("ptk/esp8266/deug", "Timer is ON");
+        } else if (message == "Timer_OFF") {
+            timeMgr->setTimerMode(false);
+            Serial.println("Timer Mode: OFF");
+            if (client->connected())
+                client->publish("ptk/esp8266/deug", "Timer is OFF");
+        }
+    }
     // Timer start/stop
     else if (topicStr == "ptk/esp8266/timerstart") {
         int hour = message.substring(0, 2).toInt();
@@ -103,6 +118,43 @@ void MQTTHandler::handleCallback(char* topic, byte* payload, unsigned int length
         timeMgr->setDayOn(6, message == "Sun_ON");
         Serial.printf("%s\n", message.c_str());
     }
+    // ==================== ULTRASONIC THRESHOLD CONTROL ====================
+    else if (topicStr == "ptk/esp8266/ultrasonic/threshold/park-start") {
+        float threshold = message.toFloat();
+        if (threshold > 0 && threshold < 100) {
+            waterSensor->updateParkStartThreshold(threshold);
+            Serial.printf("Park start threshold: %.1f%%\n", threshold);
+            if (client->connected())
+                client->publish("ptk/esp8266/debug", "Park start threshold updated", false);
+        }
+    }
+    else if (topicStr == "ptk/esp8266/ultrasonic/threshold/park-stop") {
+        float threshold = message.toFloat();
+        if (threshold > 0 && threshold <= 100) {
+            waterSensor->updateParkStopThreshold(threshold);
+            Serial.printf("Park stop threshold: %.1f%%\n", threshold);
+            if (client->connected())
+                client->publish("ptk/esp8266/debug", "Park stop threshold updated", false);
+        }
+    }
+    else if (topicStr == "ptk/esp8266/ultrasonic/threshold/pub-min") {
+        float threshold = message.toFloat();
+        if (threshold >= 0 && threshold < 100) {
+            waterSensor->updatePubMinThreshold(threshold);
+            Serial.printf("Pub min threshold: %.1f%%\n", threshold);
+            if (client->connected())
+                client->publish("ptk/esp8266/debug", "Pub min threshold updated", false);
+        }
+    }
+    // ==================== TIMER CONTROL ====================
+    else if (topicStr == "ptk/esp8266/timer/reset-flag") {
+        if (message == "RESET") {
+            timeMgr->resetTimerExecutionFlag();
+            Serial.println("Timer execution flag reset - สามารถทำงานซ้ำได้");
+            if (client->connected())
+                client->publish("ptk/esp8266/debug", "Timer flag reset", false);
+        }
+    }
 }
 
 void MQTTHandler::reconnect() {
@@ -126,9 +178,18 @@ void MQTTHandler::reconnect() {
             client->subscribe("ptk/esp8266/timer/sun");
             client->subscribe("ptk/esp8266/set-debug");
             client->subscribe("ptk/esp8266/set-auto");
+            client->subscribe("ptk/esp8266/set-timer");  // Timer mode enable/disable
             client->subscribe("ptk/esp8266/water-level-park");
             client->subscribe("ptk/esp8266/water-level-pub");
             client->subscribe("ptk/esp8266/btn");
+
+            // Ultrasonic threshold control topics
+            client->subscribe("ptk/esp8266/ultrasonic/threshold/park-start");
+            client->subscribe("ptk/esp8266/ultrasonic/threshold/park-stop");
+            client->subscribe("ptk/esp8266/ultrasonic/threshold/pub-min");
+
+            // Timer control topics
+            client->subscribe("ptk/esp8266/timer/reset-flag");
         } else {
             Serial.print("failed, rc=");
             Serial.print(client->state());

@@ -8,6 +8,7 @@
 
 // Include custom headers
 #include "config.h"
+#include "UltrasonicSensor.h"
 #include "WaterSensor.h"
 #include "PumpController.h"
 #include "TimeManager.h"
@@ -19,11 +20,15 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org");
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
+// Ultrasonic sensors
+UltrasonicSensor ultrasonicPark(ULTRASONIC_PARK_TRIG, ULTRASONIC_PARK_ECHO);
+UltrasonicSensor ultrasonicPub(ULTRASONIC_PUB_TRIG, ULTRASONIC_PUB_ECHO);
+
 // Create objects
 WaterSensor waterSensor;
 PumpController pumpController(&waterSensor);
 TimeManager timeManager(&timeClient, &waterSensor);
-MQTTHandler mqttHandler(&client, &pumpController, &timeManager);
+MQTTHandler mqttHandler(&client, &pumpController, &timeManager, &waterSensor);
 
 // Scheduler
 Scheduler runner;
@@ -57,7 +62,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // Task callbacks
 void SensorRead() {
-  waterSensor.read();
+  waterSensor.read();              // Read digital sensors
+  waterSensor.readUltrasonic();    // Read ultrasonic sensors
   waterSensor.publishLevels(timeManager.getDebugMode());
 }
 
@@ -82,11 +88,34 @@ Task timerTask(TIMER_CHECK_INTERVAL, TASK_FOREVER, &Check_Timer_Pump);
 
 void setup() { // all setup
   Serial.begin(115200);
-  
+
   // Initialize components
   waterSensor.init();
   pumpController.init();
-  
+
+  // ==================== INITIALIZE ULTRASONIC SENSORS ====================
+  Serial.println("Initializing ultrasonic sensors...");
+
+  // Initialize ultrasonic hardware
+  ultrasonicPark.init();
+  ultrasonicPub.init();
+
+  // Set calibration values from config.h
+  ultrasonicPark.setCalibration(PARK_DISTANCE_EMPTY, PARK_DISTANCE_FULL);
+  ultrasonicPub.setCalibration(PUB_DISTANCE_EMPTY, PUB_DISTANCE_FULL);
+
+  // Link ultrasonic sensors to water sensor
+  waterSensor.initUltrasonic(&ultrasonicPark, &ultrasonicPub);
+
+  // Set thresholds from config.h
+  waterSensor.setThresholds(PARK_START_THRESHOLD, PARK_STOP_THRESHOLD, PUB_MIN_THRESHOLD);
+
+  Serial.println("Ultrasonic sensors initialized");
+  Serial.printf("Park: Empty=%.1fcm, Full=%.1fcm\n", PARK_DISTANCE_EMPTY, PARK_DISTANCE_FULL);
+  Serial.printf("Pub: Empty=%.1fcm, Full=%.1fcm\n", PUB_DISTANCE_EMPTY, PUB_DISTANCE_FULL);
+  Serial.printf("Thresholds: Start=%.1f%%, Stop=%.1f%%, PubMin=%.1f%%\n",
+                PARK_START_THRESHOLD, PARK_STOP_THRESHOLD, PUB_MIN_THRESHOLD);
+
   // Setup WiFi
   setup_wifi();
   

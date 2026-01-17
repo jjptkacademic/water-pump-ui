@@ -16,9 +16,14 @@ PumpController::PumpController(WaterSensor* waterSensor) {
 
 void PumpController::init() {
     pinMode(Wather_Pump, OUTPUT);
-    pinMode(ButtonOn, INPUT);
-    pinMode(ButtonOff, INPUT);
+
+    // LED indicators (changed from INPUT buttons to OUTPUT LEDs)
+    pinMode(LED_Green, OUTPUT);
+    pinMode(LED_Red, OUTPUT);
+
     digitalWrite(Wather_Pump, LOW);
+    digitalWrite(LED_Green, LOW);  // LED off
+    digitalWrite(LED_Red, LOW);    // LED off
 }
 
 void PumpController::openPump() {
@@ -44,34 +49,38 @@ void PumpController::offPump() {
 }
 
 bool PumpController::checkPumpWorking() {
-    // ถ้าเซนเซอร์บน ในสวนน้ำเต็ม หรือ น้ำในคลองหมด
+    // Priority 1: Safety check (digital + ultrasonic)
     if (sensor->shouldStopPump()) {
         flag_autopump_on = false;
-        Serial.println("น้ำหมดละจ้า");
+        Serial.println("หยุดปั๊ม: น้ำเต็มสวนหรือน้ำหมดคลอง");
         return false;
     }
-    // ถ้าถึงเวลาในการปั๊มน้ำ
-    else if (flag_timer_pump) {
+
+    // Priority 2: Timer mode
+    if (flag_timer_pump) {
         Serial.println("ทำงานตามเวลาอยู่ครับพี่");
         return true;
     }
-    // ถ้าปุ่มถูกกด
-    else if (flag_trigBtn_start) {
+
+    // Priority 3: Button mode
+    if (flag_trigBtn_start) {
         Serial.println("ทำงานตามที่กดปุ่มมาอยู่ครับนาย");
         return true;
     }
-    // ถ้าเซนเซอร์ตัวล่างในสวน ไม่มีน้ำ และมีน้ำในแหล่งน้ำคลอง
-    else if (sensor->getParkDownStatus() == 1 && sensor->getParkUpStatus() == 0 && sensor->isWaterFullInPub()) {
-        Serial.println("ทำงานอัตโนมัติตามเงื่อนไขอยู่เลย");
+
+    // Priority 4: Auto mode - Try ultrasonic first
+    if (sensor->shouldStartPumpUltrasonic()) {
+        Serial.println("เปิดปั๊มอัตโนมัติ: Ultrasonic (น้ำสวนต่ำ)");
         flag_autopump_on = true;
         return true;
     }
-    // ถ้ายังมี flag true ให้ปั๊มทำงานต่อไป
-    else if (flag_autopump_on) {
-        Serial.println("flag ทำงานอัตโนมัติ");
+
+    // Priority 5: Continue pumping if auto flag is set
+    if (flag_autopump_on) {
+        Serial.println("ปั๊มทำงานต่อเนื่อง (auto mode)");
         return true;
     }
-    
+
     return false;
 }
 

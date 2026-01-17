@@ -2,10 +2,10 @@
 #define CONFIG_H
 
 // Pin Definitions
-#define ButtonOn D5
-#define ButtonOff D6
+#define ButtonOn D5 // this LD Green
+#define ButtonOff D6 // this LD Red
 #define SensorinParkDown D4
-#define SensorinParkUp D3
+// #define SensorinParkUp D3
 #define SensorinSeaDown D2
 #define SensorinSeaUp D1
 #define Wather_Pump D7

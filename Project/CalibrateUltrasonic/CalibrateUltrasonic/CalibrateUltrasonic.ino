@@ -5,8 +5,8 @@
 // Then configure these values in your main program
 
 // Pin Definitions
-#define TRIG_PIN D5  // Trigger pin for HC-SR04
-#define ECHO_PIN D6  // Echo pin for HC-SR04
+#define TRIG_PIN D1  // Trigger pin for HC-SR04
+#define ECHO_PIN D2  // Echo pin for HC-SR04
 
 // ===============================================
 // Calibration Variables - Insert measured values here

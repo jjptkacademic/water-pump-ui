@@ -1,8 +1,8 @@
 #include "config.h"
 
 // WiFi Configuration
-const char* ssid = "Nebula";
-const char* password = "teacherRoom";
+const char* ssid = "Coding Room 3";
+const char* password = "212224236";
 
 // MQTT Configuration
 const char* mqtt_server = "6555a54274d6454ab49e8eb9b94c325c.s1.eu.hivemq.cloud";

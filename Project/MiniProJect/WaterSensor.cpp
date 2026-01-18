@@ -22,21 +22,23 @@ WaterSensor::WaterSensor() {
 }
 
 void WaterSensor::init() {
-    pinMode(SensorinSeaUp, INPUT);
-    pinMode(SensorinSeaDown, INPUT);
-    pinMode(SensorinParkUp, INPUT);
-    // SensorinParkDown removed - replaced by ultrasonic
+    // User requested INPUT_PULLUP for these pins
+    pinMode(SensorinSeaUp, INPUT_PULLUP);
+    pinMode(SensorinSeaDown, INPUT_PULLUP);
+    pinMode(SensorinParkUp, INPUT_PULLUP);
 }
 
 void WaterSensor::read() {
     parkUpStatus = digitalRead(SensorinParkUp);
     seaDownStatus = digitalRead(SensorinSeaDown);
     seaUpStatus = digitalRead(SensorinSeaUp);
-    // parkDownStatus removed - using ultrasonic instead
 }
 
 bool WaterSensor::isWaterFullInPub() {
-    return (seaUpStatus == 1 && seaDownStatus == 0);
+    // SeaUp: 1=Empty, 0=Water
+    // SeaDown: 0=Empty, 1=Water
+    // Full = SeaUp has Water (0) AND SeaDown has Water (1)
+    return (seaUpStatus == 0 && seaDownStatus == 1);
 }
 
 // ==================== ULTRASONIC METHODS ====================
@@ -86,12 +88,14 @@ float WaterSensor::getPubWaterPercent() {
 
 bool WaterSensor::shouldStopPump() {
     // Priority 1: Digital sensor - น้ำคลองหมด (safety critical!)
-    if (seaDownStatus == 1) {
+    // SeaDown: 0 = Empty (No water)
+    if (seaDownStatus == 0) {
         return true;  // Stop immediately - no water in pub/sea
     }
 
     // Priority 2: Digital sensor - น้ำสวนเต็ม (backup safety)
-    if (parkUpStatus == 1) {
+    // ParkUp: 1 = Empty, 0 = Full (Water present)
+    if (parkUpStatus == 0) {
         return true;  // Stop immediately - park tank full
     }
 
@@ -116,20 +120,22 @@ void WaterSensor::publishLevels(bool debugMode) {
     if (!client.connected()) return;
 
     // ==================== DIGITAL SENSORS (Pub/Sea) ====================
-    // Publish water level in canal (pub) - digital sensors
-    if (seaUpStatus == 1) {
+    // SeaUp: 1=Empty, 0=Water
+    // SeaDown: 0=Empty, 1=Water
+
+    if (seaUpStatus == 0) { // Has water at top
         if (water_level_pub != 3) {
             client.publish("ptk/esp8266/water-level-pub", "2", true);
             if (debugMode) Serial.println("น้ำเต็มคลอง");
         }
         water_level_pub = 3;
-    } else if (seaDownStatus == 0) {
+    } else if (seaDownStatus == 1) { // Has water at bottom (but top is empty because else if)
         if (water_level_pub != 2) {
             client.publish("ptk/esp8266/water-level-pub", "1", true);
             if (debugMode) Serial.println("น้ำครึ่งคลอง");
         }
         water_level_pub = 2;
-    } else if (seaDownStatus == 1) {
+    } else { // SeaDown == 0 (Empty)
         if (water_level_pub != 1) {
             client.publish("ptk/esp8266/water-level-pub", "0", true);
             if (debugMode) Serial.println("น้ำหมดคลองแล้ว");
@@ -137,8 +143,10 @@ void WaterSensor::publishLevels(bool debugMode) {
         water_level_pub = 1;
     }
 
-    // Publish water level in park - digital sensor (parkUp only, no parkDown)
-    if (parkUpStatus == 1) {
+    // ==================== DIGITAL SENSORS (Park) ====================
+    // ParkUp: 1=Empty, 0=Water (Full)
+
+    if (parkUpStatus == 0) { // Full
         if (water_level_park != 3) {
             client.publish("ptk/esp8266/water-level-park", "2", true);
             if (debugMode) Serial.println("น้ำเต็มสวน");

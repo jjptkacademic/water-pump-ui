@@ -17,29 +17,34 @@ PumpController::PumpController(WaterSensor* waterSensor) {
 void PumpController::init() {
     pinMode(Wather_Pump, OUTPUT);
 
-    // LED indicators (changed from INPUT buttons to OUTPUT LEDs)
-    pinMode(LED_Green, OUTPUT);
-    pinMode(LED_Red, OUTPUT);
+    // LED indicators
+    pinMode(LED_Status, OUTPUT);
 
-    digitalWrite(Wather_Pump, LOW);
-    digitalWrite(LED_Green, LOW);  // LED off
-    digitalWrite(LED_Red, LOW);    // LED off
+    digitalWrite(Wather_Pump, LOW); // Default OFF
+    digitalWrite(LED_Status, LOW);  // LED off
 }
 
 void PumpController::openPump() {
     if (!pump_working && client.connected()) {
-        digitalWrite(Wather_Pump, HIGH);
+        digitalWrite(Wather_Pump, HIGH); // HIGH = ON
         client.publish("ptk/esp8266/status", "Led_ON", true);
         client.publish("ptk/esp8266/btn", "Btn_ON", true);
         Serial.println("ปั๊มทำงาน");
+        
+        // Turn on Status LED
+        digitalWrite(LED_Status, HIGH);
     }
     flag_send_pub_to_led_status = false;
     pump_working = true;
 }
 
 void PumpController::offPump() {
-    digitalWrite(Wather_Pump, LOW);
+    digitalWrite(Wather_Pump, LOW); // LOW = OFF
     pump_working = false;
+    
+    // Turn off Status LED
+    digitalWrite(LED_Status, LOW);
+    
     if (!flag_send_pub_to_led_status && client.connected()) {
         client.publish("ptk/esp8266/status", "Led_OFF", true);
         client.publish("ptk/esp8266/btn", "Btn_OFF", true);
@@ -128,6 +133,8 @@ void PumpController::checkAutoPump(bool autoEnabled) {
             flag_send_pub_to_led_status = true;
             Serial.println("ปั๊มไม่ทำงาน");
             pump_working = false;
+            // Ensure LED is off
+            digitalWrite(LED_Status, LOW);
         }
     }
 }

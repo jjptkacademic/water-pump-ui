@@ -72,7 +72,6 @@ Password: Aa12341234
 
 | Topic | Payload | คำอธิบาย |
 |-------|---------|----------|
-| `ptk/esp8266/timer/today-working` | `Today_ON` / `Today_OFF` | วันนี้ timer เปิดหรือไม่ |
 | `ptk/esp8266/timer/executed-today` | `YES` / `NO` | Timer ทำงานไปแล้วหรือยัง (ป้องกันทำงานซ้ำ) |
 
 ### 2.3 ระดับน้ำ - Digital Sensors
@@ -162,7 +161,6 @@ Publish → ptk/esp8266/timer/wed: "Wed_ON"
 
 **Monitor:**
 ```
-Subscribe ← ptk/esp8266/timer/today-working
 Subscribe ← ptk/esp8266/timer/executed-today
 Subscribe ← ptk/esp8266/status
 ```
@@ -306,7 +304,6 @@ Subscribe ← ptk/esp8266/ultrasonic/pub/status
 
 **Subscribe:**
 - `ptk/esp8266/set-timer`
-- `ptk/esp8266/timer/today-working`
 - `ptk/esp8266/timer/executed-today`
 
 ---

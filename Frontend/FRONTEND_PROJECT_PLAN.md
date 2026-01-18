@@ -159,7 +159,6 @@ const SUBSCRIBE_TOPICS = [
   'ptk/esp8266/water-level-pub',             // Digital Pub (0,1,2)
   'ptk/esp8266/status',                      // Pump status (Led_ON/OFF)
   'ptk/esp8266/btn',                         // Button status (Btn_ON/OFF)
-  'ptk/esp8266/timer/today-working',         // Timer active (Today_ON/OFF)
   'ptk/esp8266/deug'                         // Debug messages
 ];
 ```
@@ -427,8 +426,7 @@ export class MQTTService {
       'ptk/esp8266/water-level-park',
       'ptk/esp8266/water-level-pub',
       'ptk/esp8266/status',
-      'ptk/esp8266/btn',
-      'ptk/esp8266/timer/today-working'
+      'ptk/esp8266/btn'
     ];
 
     topics.forEach(topic => {

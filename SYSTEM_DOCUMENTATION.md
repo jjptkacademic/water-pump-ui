@@ -271,7 +271,6 @@ if (topicStr == "ptk/esp8266/btn") {
 | `ptk/esp8266/status` | "Led_ON", "Led_OFF" | สถานะปั๊ม |
 | `ptk/esp8266/btn` | "Btn_ON", "Btn_OFF" | สถานะปุ่ม |
 | `ptk/esp8266/deug` | text messages | ข้อความ debug |
-| `ptk/esp8266/timer/today-working` | "Today_ON", "Today_OFF" | สถานะว่าวันนี้มีกำหนดปั๊มหรือไม่ |
 
 ### คำสั่งที่รับเข้า (App → ESP8266)
 

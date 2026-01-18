@@ -11,7 +11,6 @@ TimeManager::TimeManager(NTPClient* client, WaterSensor* waterSensor) {
     sensor = waterSensor;
     lastNTPUpdate = 0;
     flag_keep_timer_pump_working = false;
-    flag_send_set_led_today_working_pump_timer = false;
     flag_debug_SerialPrint = false;
     flag_timer_mode_enabled = false;  // Default: Timer mode OFF
 
@@ -63,9 +62,14 @@ int TimeManager::getCurrentDay() {
 }
 
 void TimeManager::setTimerMode(bool enabled) {
+    // เช็คว่า state เปลี่ยนหรือเปล่า (ป้องกัน feedback loop)
+    if (flag_timer_mode_enabled == enabled) {
+        return;  // ไม่เปลี่ยน → ไม่ต้องทำอะไร
+    }
+
     flag_timer_mode_enabled = enabled;
 
-    // Publish MQTT: Timer mode status
+    // Publish MQTT: Timer mode status (เฉพาะเมื่อ state เปลี่ยนจริงๆ)
     if (client.connected()) {
         const char* status = enabled ? "Timer_ON" : "Timer_OFF";
         client.publish("ptk/esp8266/set-timer", status, true);
@@ -144,11 +148,6 @@ bool TimeManager::checkTimerPump() {
             flag_timer_executed_today = true;  // ✅ บันทึกว่าทำงานแล้ววันนี้
             Serial.println("Timer: เปิดปั๊ม (ครั้งแรกของวัน)");
 
-            if (!flag_send_set_led_today_working_pump_timer) {
-                client.publish("ptk/esp8266/timer/today-working", "Today_ON", true);
-                flag_send_set_led_today_working_pump_timer = true;
-            }
-
             // Publish MQTT: Timer ทำงานไปแล้ววันนี้ (เฉพาะครั้งแรก)
             if (!last_published_executed_status) {
                 client.publish("ptk/esp8266/timer/executed-today", "YES", true);
@@ -167,10 +166,6 @@ bool TimeManager::checkTimerPump() {
         }
     } else {
         // วันนี้ไม่ได้เปิด timer
-        if (flag_send_set_led_today_working_pump_timer) {
-            flag_send_set_led_today_working_pump_timer = false;
-            client.publish("ptk/esp8266/timer/today-working", "Today_OFF", true);
-        }
         timerActive = false;
         flag_keep_timer_pump_working = false;
     }

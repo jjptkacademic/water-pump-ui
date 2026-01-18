@@ -13,7 +13,6 @@ private:
     int dayOn_Select[7];
     long timeStart_Stop[2];
     bool flag_keep_timer_pump_working;
-    bool flag_send_set_led_today_working_pump_timer;
     bool flag_debug_SerialPrint;
     bool flag_timer_mode_enabled;  // เปิด/ปิด Timer Mode (เหมือน Auto Mode)
 

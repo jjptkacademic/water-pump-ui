@@ -12,7 +12,8 @@ private:
     bool Button_Status;
     bool flag_trigBtn_start;
     bool flag_timer_pump;
-    
+    bool auto_mode_enabled;  // เก็บสถานะ Auto Mode
+
     WaterSensor* sensor;
 
 public:

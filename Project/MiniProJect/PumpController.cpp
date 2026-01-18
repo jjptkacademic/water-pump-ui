@@ -12,6 +12,7 @@ PumpController::PumpController(WaterSensor* waterSensor) {
     Button_Status = false;
     flag_trigBtn_start = false;
     flag_timer_pump = false;
+    auto_mode_enabled = false;  // Default: Auto mode off
 }
 
 void PumpController::init() {
@@ -73,15 +74,15 @@ bool PumpController::checkPumpWorking() {
         return true;
     }
 
-    // Priority 4: Auto mode - Try ultrasonic first
-    if (sensor->shouldStartPumpUltrasonic()) {
+    // Priority 4: Auto mode - Only if auto enabled
+    if (auto_mode_enabled && sensor->shouldStartPumpUltrasonic()) {
         Serial.println("เปิดปั๊มอัตโนมัติ: Ultrasonic (น้ำสวนต่ำ)");
         flag_autopump_on = true;
         return true;
     }
 
     // Priority 5: Continue pumping if auto flag is set
-    if (flag_autopump_on) {
+    if (auto_mode_enabled && flag_autopump_on) {
         Serial.println("ปั๊มทำงานต่อเนื่อง (auto mode)");
         return true;
     }
@@ -119,22 +120,14 @@ void PumpController::checkButtonPump() {
 
 void PumpController::checkAutoPump(bool autoEnabled) {
     if (!client.connected()) return;
-    
-    if (autoEnabled) {
-        if (checkPumpWorking()) {
-            openPump();
-        } else {
-            offPump();
-        }
+
+    // เก็บสถานะ Auto Mode (ใช้สำหรับ checkPumpWorking)
+    auto_mode_enabled = autoEnabled;
+
+    // เช็คการทำงานของปั๊ม (ทุกโหมด: Timer, Button, Auto)
+    if (checkPumpWorking()) {
+        openPump();
     } else {
-        if (!flag_send_pub_to_led_status) {
-            client.publish("ptk/esp8266/status", "Led_OFF", true);
-            client.publish("ptk/esp8266/btn", "Btn_OFF", true);
-            flag_send_pub_to_led_status = true;
-            Serial.println("ปั๊มไม่ทำงาน");
-            pump_working = false;
-            // Ensure LED is off
-            digitalWrite(LED_Status, LOW);
-        }
+        offPump();
     }
 }

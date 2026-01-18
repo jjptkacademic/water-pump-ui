@@ -1,5 +1,6 @@
 #include "MQTTHandler.h"
 #include "config.h"
+#include <ESP8266WiFi.h>
 
 MQTTHandler::MQTTHandler(PubSubClient* mqttClient, PumpController* pump, TimeManager* timer, WaterSensor* sensor) {
     client = mqttClient;
@@ -155,6 +156,33 @@ void MQTTHandler::handleCallback(char* topic, byte* payload, unsigned int length
                 client->publish("ptk/esp8266/debug", "Timer flag reset", false);
         }
     }
+    // ==================== PING/PONG (CONNECTION CHECK) ====================
+    else if (topicStr == "ptk/esp8266/ping") {
+        if (message == "PING") {
+            // Calculate uptime
+            unsigned long uptimeSeconds = millis() / 1000;
+            unsigned long hours = uptimeSeconds / 3600;
+            unsigned long minutes = (uptimeSeconds % 3600) / 60;
+            unsigned long seconds = uptimeSeconds % 60;
+
+            // Get system info
+            uint32_t freeHeap = ESP.getFreeHeap();
+            int rssi = WiFi.RSSI();
+
+            // Format response: "Uptime:3h25m12s|Heap:25KB|WiFi:-62dBm"
+            char response[100];
+            snprintf(response, sizeof(response),
+                     "Uptime:%luh%lum%lus|Heap:%luKB|WiFi:%ddBm",
+                     hours, minutes, seconds,
+                     freeHeap / 1024,
+                     rssi);
+
+            if (client->connected()) {
+                client->publish("ptk/esp8266/pong", response, false);
+                Serial.printf("PING received → PONG: %s\n", response);
+            }
+        }
+    }
 }
 
 void MQTTHandler::reconnect() {
@@ -190,6 +218,9 @@ void MQTTHandler::reconnect() {
 
             // Timer control topics
             client->subscribe("ptk/esp8266/timer/reset-flag");
+
+            // Connection check (Ping/Pong)
+            client->subscribe("ptk/esp8266/ping");
         } else {
             Serial.print("failed, rc=");
             Serial.print(client->state());

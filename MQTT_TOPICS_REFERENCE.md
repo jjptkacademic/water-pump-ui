@@ -54,6 +54,7 @@ Password: Aa12341234
 | Topic | Payload | คำอธิบาย |
 |-------|---------|----------|
 | `ptk/esp8266/timer/reset-flag` | `RESET` | รีเซ็ต Timer flag ให้ทำงานซ้ำได้ในวันเดียวกัน |
+| `ptk/esp8266/ping` | `PING` | เช็คการเชื่อมต่อ ESP8266 (ตอบกลับที่ pong) |
 
 ---
 
@@ -65,6 +66,7 @@ Password: Aa12341234
 |-------|---------|----------|
 | `ptk/esp8266/status` | `Led_ON` / `Led_OFF` | สถานะปั๊มน้ำ |
 | `ptk/esp8266/btn` | `Btn_ON` / `Btn_OFF` | สถานะปุ่มควบคุม |
+| `ptk/esp8266/pong` | `Uptime:3h25m12s\|Heap:25KB\|WiFi:-62dBm` | ตอบกลับ ping (connection check พร้อมข้อมูล debug) |
 | `ptk/esp8266/debug` | Text message | ข้อความ debug ทั่วไป |
 | `ptk/esp8266/deug` | Text message | ข้อความ debug (typo alt) |
 
@@ -169,6 +171,26 @@ Subscribe ← ptk/esp8266/status
 ```
 Publish → ptk/esp8266/timer/reset-flag: "RESET"
 ```
+
+---
+
+### 🔌 Connection Check (Ping/Pong)
+
+**เช็คการเชื่อมต่อ ESP8266:**
+```
+Publish → ptk/esp8266/ping: "PING"
+Subscribe ← ptk/esp8266/pong: "Uptime:3h25m12s|Heap:25KB|WiFi:-62dBm"
+```
+
+**ตัวอย่าง Response:**
+- `Uptime:0h2m35s|Heap:26KB|WiFi:-58dBm` - เปิดมา 2 นาที 35 วินาที, RAM เหลือ 26KB, WiFi signal -58 dBm
+- `Uptime:12h15m8s|Heap:23KB|WiFi:-72dBm` - เปิดมา 12 ชั่วโมง, RAM เหลือ 23KB, WiFi signal อ่อน
+
+**ประโยชน์:**
+- เช็คว่า ESP8266 ยังทำงานอยู่หรือไม่
+- ดู uptime (เปิดมานานเกินไป → อาจต้อง restart)
+- เช็ค free memory (น้อยเกินไป → memory leak)
+- เช็คสัญญาณ WiFi (-30 ถึง -60 dBm = ดี, -70 ขึ้นไป = อ่อน)
 
 ---
 
@@ -375,6 +397,18 @@ function setTimer(startTime, stopTime, days) {
     client.publish(`ptk/esp8266/timer/${day}`, `${day}_ON`);
   });
 }
+
+// เช็คการเชื่อมต่อ ESP8266
+function checkConnection() {
+  // Subscribe pong ก่อน
+  client.subscribe('ptk/esp8266/pong');
+
+  // ส่ง PING
+  client.publish('ptk/esp8266/ping', 'PING');
+
+  // รับผลลัพธ์จาก on('message') handler
+  // Response: "Uptime:3h25m12s|Heap:25KB|WiFi:-62dBm"
+}
 ```
 
 ---
@@ -421,6 +455,12 @@ def turn_pump_on():
 # ปิดปั๊ม
 def turn_pump_off():
     client.publish("ptk/esp8266/btn", "Btn_OFF")
+
+# เช็คการเชื่อมต่อ ESP8266
+def check_connection():
+    client.subscribe("ptk/esp8266/pong")
+    client.publish("ptk/esp8266/ping", "PING")
+    # Response: "Uptime:3h25m12s|Heap:25KB|WiFi:-62dBm"
 
 client.loop_forever()
 ```

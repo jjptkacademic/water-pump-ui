@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /S /B *.jsx *.js)",
+      "Bash(findstr:*)",
+      "Bash(dir /B)",
+      "Bash(npm run dev)"
+    ]
+  }
+}

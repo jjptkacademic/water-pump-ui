@@ -63,8 +63,8 @@ export class MQTTService {
       TOPICS.WATER_LEVEL_PUB,
       TOPICS.PUMP_STATUS,
       TOPICS.BUTTON_STATUS,
-      TOPICS.TIMER_TODAY,
-      TOPICS.TIMER_DONE,
+      TOPICS.TIMER_EXECUTED,  // ✅ แก้ชื่อ
+      TOPICS.PONG,  // ✅ เพิ่ม Pong
       TOPICS.DEBUG
     ];
 

@@ -20,8 +20,8 @@ export const TOPICS = {
   WATER_LEVEL_PUB: 'ptk/esp8266/water-level-pub',
   PUMP_STATUS: 'ptk/esp8266/status',
   BUTTON_STATUS: 'ptk/esp8266/btn',
-  TIMER_TODAY: 'ptk/esp8266/timer/today-working',
-  TIMER_DONE: 'ptk/esp8266/timer/done-today',
+  TIMER_EXECUTED: 'ptk/esp8266/timer/executed-today',  // ✅ แก้ชื่อ
+  PONG: 'ptk/esp8266/pong',  // ✅ เพิ่ม Ping/Pong
   DEBUG: 'ptk/esp8266/deug',
 
   // Publish (ส่งไป ESP8266)
@@ -32,10 +32,17 @@ export const TOPICS = {
   TIMER_START: 'ptk/esp8266/timerstart',
   TIMER_STOP: 'ptk/esp8266/timerstop',
   TIMER_MON: 'ptk/esp8266/timer/mon',
-  TIMER_TUE: 'ptk/esp8266/timer/tue',
+  TIMER_TUE: 'ptk/esp8266/timer/tues',  // ✅ แก้ tue → tues
   TIMER_WED: 'ptk/esp8266/timer/wed',
-  TIMER_THU: 'ptk/esp8266/timer/thu',
+  TIMER_THU: 'ptk/esp8266/timer/thurs',  // ✅ แก้ thu → thurs
   TIMER_FRI: 'ptk/esp8266/timer/fri',
   TIMER_SAT: 'ptk/esp8266/timer/sat',
-  TIMER_SUN: 'ptk/esp8266/timer/sun'
+  TIMER_SUN: 'ptk/esp8266/timer/sun',
+
+  // ✅ เพิ่ม Control Topics
+  PING: 'ptk/esp8266/ping',
+  TIMER_RESET: 'ptk/esp8266/timer/reset-flag',
+  THRESHOLD_PARK_START: 'ptk/esp8266/ultrasonic/threshold/park-start',
+  THRESHOLD_PARK_STOP: 'ptk/esp8266/ultrasonic/threshold/park-stop',
+  THRESHOLD_PUB_MIN: 'ptk/esp8266/ultrasonic/threshold/pub-min'
 };

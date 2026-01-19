@@ -29,36 +29,76 @@ TimeManager::TimeManager(NTPClient* client, WaterSensor* waterSensor) {
 void TimeManager::init() {
     timeClient->begin();
     timeClient->setTimeOffset(utcOffsetInSeconds);
-    timeClient->update();
+
+    // Force NTP update หลายครั้งเพื่อให้แน่ใจว่า sync
+    Serial.println("Syncing NTP time...");
+    for (int i = 0; i < 5; i++) {
+        if (timeClient->update()) {
+            Serial.printf("✅ NTP Sync Success (attempt %d)\n", i + 1);
+            break;
+        }
+        Serial.printf("⚠️ NTP Sync attempt %d failed, retrying...\n", i + 1);
+        delay(1000);
+    }
+
     lastNTPUpdate = millis();
-    Serial.print("Current time: ");
-    Serial.println(timeClient->getFormattedTime());
+    Serial.printf("Current time: %s (UTC+7 offset: %ld seconds)\n",
+                  timeClient->getFormattedTime().c_str(),
+                  utcOffsetInSeconds);
+    Serial.printf("Epoch time: %lu\n", timeClient->getEpochTime());
+    Serial.printf("Day of week: %d\n", timeClient->getDay());
 
     // Publish initial timer status
     if (client.connected()) {
         client.publish("ptk/esp8266/timer/executed-today", "NO", true);
-        // Publish timer mode status (default: OFF)
-        client.publish("ptk/esp8266/set-timer", "Timer_OFF", true);
+        // Publish timer mode status (default: OFF) ไปที่ status topic
+        client.publish("ptk/esp8266/timer/status", "Timer_OFF", true);
     }
 }
 
 void TimeManager::updateNTPTime() {
     unsigned long currentMillis = millis();
     if (currentMillis - lastNTPUpdate >= NTP_INTERVAL) {
-        timeClient->update();
+        bool success = timeClient->update();
         lastNTPUpdate = currentMillis;
+        if (success) {
+            Serial.printf("✅ NTP Updated: %s (Epoch: %lu)\n",
+                          timeClient->getFormattedTime().c_str(),
+                          timeClient->getEpochTime());
+        } else {
+            Serial.println("❌ NTP Update Failed!");
+        }
     }
 }
 
 int TimeManager::getCurrentTimeMinutes() {
     updateNTPTime();
-    return timeClient->getHours() * 60 + timeClient->getMinutes();
+    int hours = timeClient->getHours();
+    int minutes = timeClient->getMinutes();
+
+    static unsigned long lastTimeLog = 0;
+    if (millis() - lastTimeLog > 30000) {  // Log ทุก 30 วินาที
+        Serial.printf("🕐 NTP Time: %02d:%02d (FormattedTime: %s)\n",
+                      hours, minutes, timeClient->getFormattedTime().c_str());
+        lastTimeLog = millis();
+    }
+
+    return hours * 60 + minutes;
 }
 
 int TimeManager::getCurrentDay() {
     updateNTPTime();
     int currentDay = timeClient->getDay();
-    return (currentDay == 0) ? 6 : currentDay - 1;
+    int adjustedDay = (currentDay == 0) ? 6 : currentDay - 1;
+
+    static unsigned long lastDayLog = 0;
+    if (millis() - lastDayLog > 30000) {  // Log ทุก 30 วินาที
+        Serial.printf("📅 Day: NTP=%d → Adjusted=%d (%s)\n",
+                      currentDay, adjustedDay, dayTH[adjustedDay]);
+        lastDayLog = millis();
+    }
+
+    return adjustedDay;
 }
 
 void TimeManager::setTimerMode(bool enabled) {
@@ -69,10 +109,10 @@ void TimeManager::setTimerMode(bool enabled) {
 
     flag_timer_mode_enabled = enabled;
 
-    // Publish MQTT: Timer mode status (เฉพาะเมื่อ state เปลี่ยนจริงๆ)
+    // Publish MQTT: Timer mode status (publish ไป topic คนละตัวเพื่อป้องกัน feedback loop)
     if (client.connected()) {
         const char* status = enabled ? "Timer_ON" : "Timer_OFF";
-        client.publish("ptk/esp8266/set-timer", status, true);
+        client.publish("ptk/esp8266/timer/status", status, true);  // ✅ เปลี่ยน topic
         Serial.printf("Timer Mode: %s\n", enabled ? "ENABLED" : "DISABLED");
     }
 }
@@ -105,6 +145,11 @@ bool TimeManager::checkTimerPump() {
     // ==================== CHECK TIMER MODE ENABLED ====================
     if (!flag_timer_mode_enabled) {
         // Timer mode ปิดอยู่ → ไม่ทำงาน
+        static unsigned long lastModeDisabledLog = 0;
+        if (millis() - lastModeDisabledLog > 10000) {  // Log ทุก 10 วินาที
+            Serial.println("⚠️ Timer Mode: DISABLED");
+            lastModeDisabledLog = millis();
+        }
         return false;
     }
 
@@ -114,6 +159,21 @@ bool TimeManager::checkTimerPump() {
     int currentDay = getCurrentDay();
     int startTimeMinutes = timeStart_Stop[0];
     int stopTimeMinutes = timeStart_Stop[1];
+
+    // ==================== DEBUG: ALWAYS LOG TIMER CHECK ====================
+    static unsigned long lastDebugLog = 0;
+    if (millis() - lastDebugLog > 5000) {  // Log ทุก 5 วินาที
+        unsigned long epoch = timeClient->getEpochTime();
+        bool timeValid = (epoch > 1577836800);  // > 1 Jan 2020
+
+        Serial.printf("[Timer Check] Day:%d(%s) DayEnabled:%d Time:%02d:%02d Start:%02d:%02d Stop:%02d:%02d %s\n",
+                      currentDay, dayTH[currentDay], dayOn_Select[currentDay],
+                      currentTimeMinutes/60, currentTimeMinutes%60,
+                      startTimeMinutes/60, startTimeMinutes%60,
+                      stopTimeMinutes/60, stopTimeMinutes%60,
+                      timeValid ? "✅" : "❌ TIME NOT SYNCED!");
+        lastDebugLog = millis();
+    }
 
     // ==================== CHECK DAY CHANGE ====================
     // ถ้าเปลี่ยนวัน → reset timer execution flag
@@ -134,38 +194,61 @@ bool TimeManager::checkTimerPump() {
     // เช็คว่าวันนี้เปิดใช้งานไหม
     if (dayOn_Select[currentDay] == 1) {
         // ==================== TIMER EXECUTION LOGIC ====================
-        // เงื่อนไขการเปิดปั๊มด้วย timer:
-        // 1. อยู่ในช่วงเวลาที่กำหนด
-        // 2. มีน้ำในคลอง และน้ำสวนยังไม่เต็ม
-        // 3. ยังไม่ได้ทำงานในวันนี้ (!flag_timer_executed_today)
-        // 4. ยังไม่มี flag หยุดชั่วคราว (!flag_keep_timer_pump_working)
-        if (currentTimeMinutes >= startTimeMinutes && currentTimeMinutes < stopTimeMinutes
-            && sensor->getSeaDownStatus() == 0 && sensor->getParkUpStatus() == 0
-            && !flag_timer_executed_today
-            && !flag_keep_timer_pump_working) {
+        // อยู่ในช่วงเวลาที่กำหนด
+        if (currentTimeMinutes >= startTimeMinutes && currentTimeMinutes < stopTimeMinutes) {
 
-            timerActive = true;
-            flag_timer_executed_today = true;  // ✅ บันทึกว่าทำงานแล้ววันนี้
-            Serial.println("Timer: เปิดปั๊ม (ครั้งแรกของวัน)");
+            // เงื่อนไขการทำงาน: มีน้ำในคลอง และน้ำสวนยังไม่เต็ม
+            // SeaDown: 1=มีน้ำ, 0=หมด | ParkUp: 1=ว่าง, 0=เต็ม
+            bool shouldPumpRun = (sensor->getSeaDownStatus() == 1 && sensor->getParkUpStatus() == 1);
 
-            // Publish MQTT: Timer ทำงานไปแล้ววันนี้ (เฉพาะครั้งแรก)
-            if (!last_published_executed_status) {
-                client.publish("ptk/esp8266/timer/executed-today", "YES", true);
-                last_published_executed_status = true;
+            // ยังไม่เคยทำงานวันนี้ และยังไม่ถูกหยุดชั่วคราว → เริ่มทำงานครั้งแรก
+            if (!flag_timer_executed_today && !flag_keep_timer_pump_working) {
+                if (shouldPumpRun) {
+                    timerActive = true;
+                    flag_timer_executed_today = true;  // ✅ บันทึกว่าเริ่มทำงานแล้ววันนี้
+                    Serial.println("✅ Timer: เปิดปั๊ม (ครั้งแรกของวัน)");
+
+                    // Publish MQTT: Timer เริ่มทำงานแล้ววันนี้
+                    if (!last_published_executed_status) {
+                        client.publish("ptk/esp8266/timer/executed-today", "YES", true);
+                        last_published_executed_status = true;
+                    }
+                } else {
+                    Serial.printf("❌ Timer: ไม่เปิดปั๊ม - SeaDown:%d(%s) ParkUp:%d(%s)\n",
+                                  sensor->getSeaDownStatus(),
+                                  sensor->getSeaDownStatus() == 1 ? "มีน้ำ" : "หมด",
+                                  sensor->getParkUpStatus(),
+                                  sensor->getParkUpStatus() == 1 ? "ว่าง" : "เต็ม");
+                }
+            }
+            // ทำงานไปแล้ว และยังไม่ถูกหยุดชั่วคราว → ทำงานต่อเนื่อง
+            else if (flag_timer_executed_today && !flag_keep_timer_pump_working) {
+                if (shouldPumpRun) {
+                    timerActive = true;  // ✅ ทำงานต่อเนื่อง
+                    // ไม่ต้อง Serial.println เพราะจะ spam เยอะ
+                } else {
+                    // น้ำเต็มสวน หรือน้ำหมดคลอง → หยุดชั่วคราว
+                    Serial.println("Timer: หยุดปั๊ม (น้ำเต็มหรือน้ำคลองหมด)");
+                    flag_keep_timer_pump_working = true;  // หยุดไปจนกว่าจะหมดช่วงเวลา
+                    timerActive = false;
+                }
             }
         }
-        // ถ้าทำงานอยู่และ น้ำเต็มสวน หรือน้ำหมดคลอง ให้หยุดซะ
-        else if (timerActive && sensor->shouldStopPump()) {
-            Serial.println("Timer: หยุดปั๊ม (น้ำเต็มหรือน้ำคลองหมด)");
-            flag_keep_timer_pump_working = true;
-            timerActive = false;
-        }
-        // ถ้าเลยช่วงเวลาแล้ว → reset flag สำหรับรอบถัดไป
+        // เลยช่วงเวลาแล้ว → reset flag สำหรับรอบถัดไป
         else if (currentTimeMinutes >= stopTimeMinutes) {
+            if (flag_keep_timer_pump_working) {
+                Serial.println("Timer: หมดช่วงเวลา → reset flag");
+            }
             flag_keep_timer_pump_working = false;
+            timerActive = false;
         }
     } else {
         // วันนี้ไม่ได้เปิด timer
+        static unsigned long lastDayDisabledLog = 0;
+        if (millis() - lastDayDisabledLog > 10000) {  // Log ทุก 10 วินาที
+            Serial.printf("⚠️ Timer: วันนี้ไม่เปิด (Day:%d=%s)\n", currentDay, dayTH[currentDay]);
+            lastDayDisabledLog = millis();
+        }
         timerActive = false;
         flag_keep_timer_pump_working = false;
     }

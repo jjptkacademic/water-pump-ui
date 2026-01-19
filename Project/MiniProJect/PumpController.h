@@ -13,6 +13,8 @@ private:
     bool flag_trigBtn_start;
     bool flag_timer_pump;
     bool auto_mode_enabled;  // เก็บสถานะ Auto Mode
+    bool last_stop_logged;   // ป้องกัน spam "หยุดปั๊ม"
+    bool auto_start_logged;  // ป้องกัน spam "เปิดปั๊มอัตโนมัติ"
 
     WaterSensor* sensor;
 

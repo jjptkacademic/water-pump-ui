@@ -13,6 +13,8 @@ PumpController::PumpController(WaterSensor* waterSensor) {
     flag_trigBtn_start = false;
     flag_timer_pump = false;
     auto_mode_enabled = false;  // Default: Auto mode off
+    last_stop_logged = false;   // ยังไม่ได้ log หยุดปั๊ม
+    auto_start_logged = false;  // ยังไม่ได้ log เปิดปั๊มอัตโนมัติ
 }
 
 void PumpController::init() {
@@ -22,7 +24,7 @@ void PumpController::init() {
     pinMode(LED_Status, OUTPUT);
 
     digitalWrite(Wather_Pump, LOW); // Default OFF
-    digitalWrite(LED_Status, LOW);  // LED off
+    digitalWrite(LED_Status, HIGH); // LED off (Active LOW module)
 }
 
 void PumpController::openPump() {
@@ -31,9 +33,13 @@ void PumpController::openPump() {
         client.publish("ptk/esp8266/status", "Led_ON", true);
         client.publish("ptk/esp8266/btn", "Btn_ON", true);
         Serial.println("ปั๊มทำงาน");
-        
-        // Turn on Status LED
-        digitalWrite(LED_Status, HIGH);
+
+        // Turn on Status LED (Active LOW: LOW = ON)
+        digitalWrite(LED_Status, LOW);
+
+        // Reset log flags (เมื่อเปิดปั๊มใหม่ พร้อม log ใหม่)
+        last_stop_logged = false;
+        auto_start_logged = false;
     }
     flag_send_pub_to_led_status = false;
     pump_working = true;
@@ -42,10 +48,10 @@ void PumpController::openPump() {
 void PumpController::offPump() {
     digitalWrite(Wather_Pump, LOW); // LOW = OFF
     pump_working = false;
-    
-    // Turn off Status LED
-    digitalWrite(LED_Status, LOW);
-    
+
+    // Turn off Status LED (Active LOW: HIGH = OFF)
+    digitalWrite(LED_Status, HIGH);
+
     if (!flag_send_pub_to_led_status && client.connected()) {
         client.publish("ptk/esp8266/status", "Led_OFF", true);
         client.publish("ptk/esp8266/btn", "Btn_OFF", true);
@@ -58,32 +64,41 @@ bool PumpController::checkPumpWorking() {
     // Priority 1: Safety check (digital + ultrasonic)
     if (sensor->shouldStopPump()) {
         flag_autopump_on = false;
-        Serial.println("หยุดปั๊ม: น้ำเต็มสวนหรือน้ำหมดคลอง");
+
+        // Print แค่ครั้งแรกเท่านั้น (ป้องกัน spam)
+        if (!last_stop_logged) {
+            Serial.println("หยุดปั๊ม: น้ำเต็มสวนหรือน้ำหมดคลอง");
+            last_stop_logged = true;
+        }
+
         return false;
     }
 
     // Priority 2: Timer mode
     if (flag_timer_pump) {
-        Serial.println("ทำงานตามเวลาอยู่ครับพี่");
+        // Serial.println("ทำงานตามเวลาอยู่ครับพี่");  // ไม่ต้อง log เพราะจะ spam
         return true;
     }
 
     // Priority 3: Button mode
     if (flag_trigBtn_start) {
-        Serial.println("ทำงานตามที่กดปุ่มมาอยู่ครับนาย");
+        // Serial.println("ทำงานตามที่กดปุ่มมาอยู่ครับนาย");  // ไม่ต้อง log เพราะจะ spam
         return true;
     }
 
     // Priority 4: Auto mode - Only if auto enabled
     if (auto_mode_enabled && sensor->shouldStartPumpUltrasonic()) {
-        Serial.println("เปิดปั๊มอัตโนมัติ: Ultrasonic (น้ำสวนต่ำ)");
+        if (!auto_start_logged) {
+            Serial.println("เปิดปั๊มอัตโนมัติ: Ultrasonic (น้ำสวนต่ำ)");
+            auto_start_logged = true;
+        }
         flag_autopump_on = true;
         return true;
     }
 
     // Priority 5: Continue pumping if auto flag is set
     if (auto_mode_enabled && flag_autopump_on) {
-        Serial.println("ปั๊มทำงานต่อเนื่อง (auto mode)");
+        // Serial.println("ปั๊มทำงานต่อเนื่อง (auto mode)");  // ไม่ต้อง log เพราะจะ spam
         return true;
     }
 

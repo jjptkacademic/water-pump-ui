@@ -175,11 +175,15 @@ bool TimeManager::checkTimerPump() {
         lastDebugLog = millis();
     }
 
+    // Static flag สำหรับ log "หยุดปั๊ม" (ต้องประกาศก่อนใช้)
+    static bool timer_stop_logged = false;
+
     // ==================== CHECK DAY CHANGE ====================
     // ถ้าเปลี่ยนวัน → reset timer execution flag
     if (currentDay != lastTimerExecutedDay) {
         flag_timer_executed_today = false;
         lastTimerExecutedDay = currentDay;
+        timer_stop_logged = false;  // Reset log flag สำหรับวันใหม่
         Serial.printf("วันใหม่: %s - Reset timer flag\n", dayTH[currentDay]);
 
         // Publish MQTT: Timer พร้อมทำงานใหม่
@@ -206,6 +210,7 @@ bool TimeManager::checkTimerPump() {
                 if (shouldPumpRun) {
                     timerActive = true;
                     flag_timer_executed_today = true;  // ✅ บันทึกว่าเริ่มทำงานแล้ววันนี้
+                    timer_stop_logged = false;  // Reset log flag (พร้อม log หยุดอีกครั้ง)
                     Serial.println("✅ Timer: เปิดปั๊ม (ครั้งแรกของวัน)");
 
                     // Publish MQTT: Timer เริ่มทำงานแล้ววันนี้
@@ -227,8 +232,11 @@ bool TimeManager::checkTimerPump() {
                     timerActive = true;  // ✅ ทำงานต่อเนื่อง
                     // ไม่ต้อง Serial.println เพราะจะ spam เยอะ
                 } else {
-                    // น้ำเต็มสวน หรือน้ำหมดคลอง → หยุดชั่วคราว
-                    Serial.println("Timer: หยุดปั๊ม (น้ำเต็มหรือน้ำคลองหมด)");
+                    // น้ำเต็มสวน หรือน้ำหมดคลอง → หยุดชั่วคราว (print แค่ครั้งแรก)
+                    if (!timer_stop_logged) {
+                        Serial.println("Timer: หยุดปั๊ม (น้ำเต็มหรือน้ำคลองหมด)");
+                        timer_stop_logged = true;
+                    }
                     flag_keep_timer_pump_working = true;  // หยุดไปจนกว่าจะหมดช่วงเวลา
                     timerActive = false;
                 }
@@ -240,6 +248,7 @@ bool TimeManager::checkTimerPump() {
                 Serial.println("Timer: หมดช่วงเวลา → reset flag");
             }
             flag_keep_timer_pump_working = false;
+            timer_stop_logged = false;  // Reset log flag
             timerActive = false;
         }
     } else {
